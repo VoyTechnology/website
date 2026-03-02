@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puppy Food Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50 p-4 md:p-8 text-slate-900">
+    <div class="max-w-4xl mx-auto space-y-6">
+        <header class="flex items-center justify-between border-b border-slate-200 pb-4">
+            <h1 class="text-2xl font-bold tracking-tight text-slate-800 uppercase">Puppy Food Calculator</h1>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Inputs Section -->
+            <div class="md:col-span-1 space-y-6">
+                <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h2 class="text-sm font-bold uppercase text-slate-500 mb-4 flex items-center gap-2">
+                        <i data-lucide="calendar" class="w-4 h-4"></i> Parameters
+                    </h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold mb-1 uppercase">Birthday</label>
+                            <input 
+                                type="date" 
+                                id="birthday"
+                                class="w-full p-2 border border-slate-300 rounded focus:ring-1 focus:ring-slate-400 outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold mb-1 uppercase">Portions Per Day</label>
+                            <input 
+                                type="number" 
+                                id="portionsPerDay"
+                                min="1"
+                                max="10"
+                                class="w-full p-2 border border-slate-300 rounded focus:ring-1 focus:ring-slate-400 outline-none"
+                            />
+                        </div>
+                    </div>
+                </section>
+
+                <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h2 class="text-sm font-bold uppercase text-slate-500 mb-4 flex items-center gap-2">
+                        <i data-lucide="calculator" class="w-4 h-4"></i> Reference Table
+                    </h2>
+                    <div id="tableContent" class="space-y-2 mb-4">
+                        <!-- Rows injected here -->
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input 
+                            type="number" 
+                            id="newMonth"
+                            placeholder="Month" 
+                            class="p-2 border border-slate-300 rounded text-sm outline-none"
+                        />
+                        <input 
+                            type="number" 
+                            id="newGrams"
+                            placeholder="Grams" 
+                            class="p-2 border border-slate-300 rounded text-sm outline-none"
+                        />
+                        <button 
+                            id="addBtn"
+                            class="col-span-2 bg-slate-800 text-white p-2 rounded text-xs font-bold uppercase flex items-center justify-center gap-1 hover:bg-slate-700"
+                        >
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Append Data
+                        </button>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Results Section -->
+            <div class="md:col-span-2 space-y-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="bg-slate-800 text-white p-6 rounded-xl shadow-lg border border-slate-700">
+                        <p class="text-xs font-bold uppercase text-slate-400 mb-1">Current Serving Size</p>
+                        <div class="flex items-baseline gap-2">
+                            <span id="displayPortion" class="text-4xl font-black">0</span>
+                            <span class="text-xl font-bold text-slate-400">g</span>
+                        </div>
+                        <p id="displayFrequency" class="text-[10px] mt-2 text-slate-400 italic"></p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <p class="text-xs font-bold uppercase text-slate-500 mb-1">Daily Intake Goal</p>
+                        <div class="flex items-baseline gap-2 text-slate-800">
+                            <span id="displayTotal" class="text-4xl font-black">0</span>
+                            <span class="text-xl font-bold">g</span>
+                        </div>
+                        <p class="text-[10px] mt-2 text-slate-500 italic">Interpolated based on age</p>
+                    </div>
+                </div>
+
+                <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col">
+                    <h2 class="text-sm font-bold uppercase text-slate-500 mb-6">7-Day Mass Projection</h2>
+                    <div class="w-full h-64 md:h-80">
+                        <canvas id="projectionChart"></canvas>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEYS = {
+            BIRTHDAY: 'puppy_calculator_birthday',
+            PORTIONS: 'puppy_calculator_portions',
+            FOOD_TABLE: 'puppy_calculator_food_table'
+        };
+
+        const DEFAULT_FOOD_TABLE = [
+            { month: 2, grams: 250 },
+            { month: 4, grams: 350 },
+            { month: 6, grams: 450 },
+            { month: 8, grams: 500 },
+            { month: 12, grams: 450 }
+        ];
+
+        let birthday = localStorage.getItem(STORAGE_KEYS.BIRTHDAY) || '2024-08-01';
+        let portionsPerDay = parseInt(localStorage.getItem(STORAGE_KEYS.PORTIONS)) || 3;
+        let foodTable = JSON.parse(localStorage.getItem(STORAGE_KEYS.FOOD_TABLE)) || DEFAULT_FOOD_TABLE;
+        let chartInstance = null;
+
+        // Elements
+        const birthdayInput = document.getElementById('birthday');
+        const portionsInput = document.getElementById('portionsPerDay');
+        const tableContent = document.getElementById('tableContent');
+        const newMonthInput = document.getElementById('newMonth');
+        const newGramsInput = document.getElementById('newGrams');
+        const addBtn = document.getElementById('addBtn');
+        const displayPortion = document.getElementById('displayPortion');
+        const displayTotal = document.getElementById('displayTotal');
+        const displayFrequency = document.getElementById('displayFrequency');
+
+        function init() {
+            birthdayInput.value = birthday;
+            portionsInput.value = portionsPerDay;
+            lucide.createIcons();
+            render();
+        }
+
+        function calculateAgeInMonths(birthDate, targetDate = new Date()) {
+            const birth = new Date(birthDate);
+            const diffTime = Math.abs(targetDate - birth);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays / 30.44;
+        }
+
+        function getGramsForAge(ageInMonths) {
+            const sortedTable = [...foodTable].sort((a, b) => a.month - b.month);
+            if (sortedTable.length === 0) return 0;
+            if (ageInMonths <= sortedTable[0].month) return sortedTable[0].grams;
+            if (ageInMonths >= sortedTable[sortedTable.length - 1].month) return sortedTable[sortedTable.length - 1].grams;
+
+            for (let i = 0; i < sortedTable.length - 1; i++) {
+                const start = sortedTable[i];
+                const end = sortedTable[i + 1];
+                if (ageInMonths >= start.month && ageInMonths <= end.month) {
+                    const ratio = (ageInMonths - start.month) / (end.month - start.month);
+                    return start.grams + ratio * (end.grams - start.grams);
+                }
+            }
+            return 0;
+        }
+
+        function render() {
+            // Save to local storage
+            localStorage.setItem(STORAGE_KEYS.BIRTHDAY, birthday);
+            localStorage.setItem(STORAGE_KEYS.PORTIONS, portionsPerDay);
+            localStorage.setItem(STORAGE_KEYS.FOOD_TABLE, JSON.stringify(foodTable));
+
+            // Render Table
+            tableContent.innerHTML = '';
+            [...foodTable].sort((a,b) => a.month - b.month).forEach((row, idx) => {
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between bg-slate-50 p-2 rounded text-sm border border-slate-100";
+                div.innerHTML = `
+                    <span>${row.month}m: <span class="font-bold">${row.grams}g</span></span>
+                    <button onclick="removeRow(${foodTable.indexOf(row)})" class="text-red-500 hover:bg-red-50 p-1 rounded">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                `;
+                tableContent.appendChild(div);
+            });
+            lucide.createIcons();
+
+            // Calculate Projection
+            const projectionData = [];
+            const today = new Date();
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() + i);
+                const age = calculateAgeInMonths(birthday, date);
+                const totalGrams = getGramsForAge(age);
+                projectionData.push({
+                    day: date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' }),
+                    total: Math.round(totalGrams),
+                    portion: Math.round(totalGrams / portionsPerDay)
+                });
+            }
+
+            // Update UI
+            displayPortion.innerText = projectionData[0].portion;
+            displayTotal.innerText = projectionData[0].total;
+            displayFrequency.innerText = `Frequency: ${portionsPerDay} feedings/day`;
+
+            updateChart(projectionData);
+        }
+
+        function updateChart(data) {
+            const ctx = document.getElementById('projectionChart').getContext('2d');
+            
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => d.day),
+                    datasets: [{
+                        label: 'Grams per Portion',
+                        data: data.map(d => d.portion),
+                        borderColor: '#1e293b',
+                        backgroundColor: '#1e293b',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#1e293b'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#fff',
+                            titleColor: '#1e293b',
+                            bodyColor: '#1e293b',
+                            borderColor: '#e2e8f0',
+                            borderWidth: 1,
+                            displayColors: false,
+                            padding: 10
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: { display: true, color: '#f1f5f9' },
+                            ticks: { color: '#64748b', font: { size: 10 } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#64748b', font: { size: 10, weight: '700' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        window.removeRow = function(index) {
+            foodTable.splice(index, 1);
+            render();
+        };
+
+        addBtn.addEventListener('click', () => {
+            const m = parseFloat(newMonthInput.value);
+            const g = parseFloat(newGramsInput.value);
+            if (!isNaN(m) && !isNaN(g)) {
+                foodTable.push({ month: m, grams: g });
+                newMonthInput.value = '';
+                newGramsInput.value = '';
+                render();
+            }
+        });
+
+        birthdayInput.addEventListener('change', (e) => {
+            birthday = e.target.value;
+            render();
+        });
+
+        portionsInput.addEventListener('input', (e) => {
+            portionsPerDay = Math.max(1, parseInt(e.target.value) || 1);
+            render();
+        });
+
+        window.onload = init;
+    </script>
+</body>
+</html>
