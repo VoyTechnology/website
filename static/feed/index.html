@@ -119,14 +119,13 @@
         };
 
         const DEFAULT_FOOD_TABLE = [
-            { month: 2, grams: 250 },
-            { month: 4, grams: 350 },
-            { month: 6, grams: 450 },
-            { month: 8, grams: 500 },
-            { month: 12, grams: 450 }
+            { month: 2, grams: 277 },
+            { month: 6, grams: 445 },
+            { month: 8, grams: 423 },
+            { month: 12, grams: 324 }
         ];
 
-        let birthday = localStorage.getItem(STORAGE_KEYS.BIRTHDAY) || '2024-08-01';
+        let birthday = localStorage.getItem(STORAGE_KEYS.BIRTHDAY) || '2025-10-01';
         let portionsPerDay = parseInt(localStorage.getItem(STORAGE_KEYS.PORTIONS)) || 3;
         let foodTable = JSON.parse(localStorage.getItem(STORAGE_KEYS.FOOD_TABLE)) || DEFAULT_FOOD_TABLE;
         let chartInstance = null;
